@@ -40,6 +40,60 @@ The app needs one session cookie per service. These are **not** API keys — the
 
 Then in the app: click the menu bar icon → gear icon → paste each value → **Save**.
 
+### Run at login (persist across reboots)
+
+`swift run` only runs the app in the foreground of the terminal that launched it. To have it start automatically at login and restart if it crashes, install it as a LaunchAgent:
+
+```bash
+swift build -c release
+mkdir -p ~/Library/Logs/AIStatus
+```
+
+Create `~/Library/LaunchAgents/com.seanmorrison.aistatus.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.seanmorrison.aistatus</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/sean/Projects/ai-status/.build/arm64-apple-macosx/release/AIStatus</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>StandardOutPath</key>
+    <string>/Users/sean/Library/Logs/AIStatus/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/sean/Library/Logs/AIStatus/stderr.log</string>
+</dict>
+</plist>
+```
+
+Then load it:
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.seanmorrison.aistatus.plist
+```
+
+Useful commands:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.seanmorrison.aistatus   # restart
+launchctl bootout gui/$(id -u)/com.seanmorrison.aistatus        # unload
+```
+
+Note: the plist points at the binary inside `.build/`, which is gitignored. If you run `swift package clean` or delete `.build/`, just rerun `swift build -c release` — the path regenerates and the LaunchAgent keeps working.
+
 ## Where your data goes
 
 Cookie values are stored **only** in the macOS Keychain, under the `com.seanmorrison.aistatus` service, and are never written to disk elsewhere or sent anywhere except directly to `claude.ai` / `chatgpt.com`. Nothing is logged or transmitted to any third party.
